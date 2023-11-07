@@ -30,7 +30,7 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 		return nil, err
 	}
 
-	cache := storage.GetCacheInstance()
+	cacheInstance := storage.GetCacheInstance()
 
 	trys := 5
 	var nextToken *string = nil
@@ -52,7 +52,7 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 
 		for _, secret := range result.Secrets {
 			key := GetCacheSecretKey(secret.ARN)
-			err = cache.Set(key, secret)
+			storage.SetCacheValue[types.Secret](cacheInstance, key, secret)
 			if err != nil {
 				log.Println("API-AWS: failed to cache the secret", secret.ARN)
 			}
@@ -71,18 +71,21 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 		}
 		accessLogMap[secret.ARN] = accesslog
 		key := GetCacheAccessKey(secret.ARN)
-		cache.Set(key, accesslog)
+		err = storage.SetCacheValue[[]types.AccessLog](cacheInstance, key, accesslog)
 		if err != nil {
-			log.Println("API-AWS: failed to cache the Access Log of secret", secret.ARN)
+			log.Println(err.Error())
 		}
 	}
 
 	// saving the ARN list for each user that request it
 	key := GetCacheARNKey(publicKey)
 	lst := createARNList(allSecrets)
-	err = cache.Set(key, lst)
+
+	// caching the value
+	err = storage.SetCacheValue[[]string](cacheInstance, key, lst)
 	if err != nil {
-		log.Println("API-AWS: failed to cache the ARN List of user public key", publicKey)
+		// failed to cache the value printing the error
+		log.Println(err.Error())
 	}
 
 	var retVal types.AllSecretWithAccessLog

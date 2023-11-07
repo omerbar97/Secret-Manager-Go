@@ -1,6 +1,11 @@
 package storage
 
-import "time"
+import (
+	"fmt"
+	GenericEncoding "golang-secret-manager/utils/encoding"
+	"reflect"
+	"time"
+)
 
 // Basic interface for cache implementation
 type ICache interface {
@@ -26,4 +31,36 @@ type ICache interface {
 
 	// Setting the value to the lower cache MAYBE DONT NEED!!!!!
 	LayerSet(key string, value interface{}) error
+}
+
+func GetCacheValue[T any](cache ICache, key string) (*T, error) {
+	// getting the value from the ICache
+	val, err := cache.Get(key)
+	if err != nil {
+		// couldn't found
+		return nil, fmt.Errorf("couldn't found key: %s in cache: %v", key, err)
+	}
+	// converting the value of the result
+	result, err := GenericEncoding.FromJson[T](val)
+	if err != nil {
+		// couldn't found
+		return nil, fmt.Errorf("couldn't convert key: %s in cache found type: %T error: %v", key, reflect.TypeOf(result), err)
+	}
+	if result != nil {
+		return result, nil
+	}
+	return nil, fmt.Errorf("nil pointer was found in the cache")
+}
+
+func SetCacheValue[T any](cache ICache, key string, value T) error {
+	bytes, err := GenericEncoding.ToJson[T](value)
+	if err != nil {
+		return fmt.Errorf("CACHE: failed to cache value: %v", err)
+	} else {
+		err = cache.Set(key, bytes)
+		if err != nil {
+			return fmt.Errorf("CACHE: failed to cache value: %v", err)
+		}
+	}
+	return nil
 }
