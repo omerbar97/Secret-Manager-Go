@@ -10,85 +10,100 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// API request const
 const apiRoute = "http://localhost:8080/"
+
+// Routes
 const secretUri = "secrets"
 const reportUri = "reports"
 
-var tempPublicKey string
-var tempSecretKey string
-var tempRegion string = "eu-north-1"
-var tempSavedLocation string = "./"
+// Global Vars
+var userPublicKey string
+var userSecretKey string
+var userRegion string = "eu-north-1"
+var userSavedLocation string = "./"
 
+// Usage
+const loadUsage = "Load Usage:\nload			-- loading the public + secret key from .env\nload public <key> 	-- loading public key\nload secret <key> 	-- loading secret key\nload region <region> 	-- loading the AWS region"
+const getUsage = "Get Usage:\nget secrets		-- retriving all secret from AWS service\nget report <secret id> 	-- showing secret report"
+const reportUsage = "Report Usage:\nget report <secret id> 	-- showing secret report"
+
+// Reading the user input
 func readInput() string {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	return scanner.Text()
 }
 
+// Seperating the input to list of words
 func tokenizeInput(input string) []string {
 	return strings.Split(input, " ")
 }
 
+// Clearing the cli screen
 func handleClear() {
 	// clearing the console from all the text
 	fmt.Print("\033[H\033[2J")
 }
 
+// Load function will load the public and secret key from the .env or manualy
 func handleLoad(args []string) {
 	length := len(args)
-	if length == 0 {
-		// fmt.Println(loadUsage)
+	if length == 0 || (length != 3 && length != 1) {
+		fmt.Println(loadUsage)
 		return
 	}
 
-	if length == 3 {
+	if length == 1 {
+		// loading the .env file
+		fmt.Println(" ---- Loading keys from the .env file ---- ")
+		err := godotenv.Load(".env")
+		if err != nil {
+			fmt.Println("Error loading .env file: ", err)
+			return
+		}
+
+		userPublicKey = os.Getenv("public")
+		userSecretKey = os.Getenv("secret")
+
+		if userPublicKey == "" || userSecretKey == "" {
+			fmt.Println("Error: couldn't find public or secret key in the .env file")
+			return
+		}
+
+		fmt.Println(" ---- Public key set to: '" + userPublicKey + "' ---- ")
+		fmt.Println(" ---- Secret key set to: '" + userSecretKey + "' ---- ")
+		return
+
+	} else if length == 3 {
 		// load public <key>
 		if args[1] == "public" {
-			tempPublicKey = args[2]
-			fmt.Println(" ---- Public key set to: '" + tempPublicKey + "' ---- ")
+			userPublicKey = args[2]
+			fmt.Println(" ---- Public key set to: '" + userPublicKey + "' ---- ")
 			return
 		} else if args[1] == "secret" {
-			tempSecretKey = args[2]
-			fmt.Println(" ---- Secret key set to: '" + tempSecretKey + "' ---- ")
+			userSecretKey = args[2]
+			fmt.Println(" ---- Secret key set to: '" + userSecretKey + "' ---- ")
 			return
 		} else if args[1] == "region" {
 			// setting default zone
-			tempRegion = args[2]
-			fmt.Println(" ---- Region set to: '" + tempRegion + "' ---- ")
+			userRegion = args[2]
+			fmt.Println(" ---- Region set to: '" + userRegion + "' ---- ")
 			return
 		} else {
-			// fmt.Println(loadUsage)
-			return
+			fmt.Println(loadUsage)
 		}
 	}
-
-	// loading the .env file
-	fmt.Println(" ---- Loading keys from the .env file ---- ")
-	err := godotenv.Load(".env")
-	if err != nil {
-		fmt.Println("Error loading .env file: ", err)
-		return
-	}
-
-	tempPublicKey = os.Getenv("public")
-	tempSecretKey = os.Getenv("secret")
-
-	if tempPublicKey == "" || tempSecretKey == "" {
-		fmt.Println("Error: couldn't find public or secret key in the .env file")
-		return
-	}
-
-	fmt.Println(" ---- Public key set to: '" + tempPublicKey + "' ---- ")
-	fmt.Println(" ---- Secret key set to: '" + tempSecretKey + "' ---- ")
 }
 
 func handleGet(args []string) {
-	if len(args) != 2 {
-		// fmt.Println(getUsage)
+	length := len(args)
+	if length != 2 && length != 3 {
+		fmt.Println(getUsage)
 		return
 	}
 
-	if tempPublicKey == "" || tempSecretKey == "" {
+	if userPublicKey == "" || userSecretKey == "" {
 		fmt.Println("Please load public and secret keys first")
 		return
 	}
@@ -96,9 +111,7 @@ func handleGet(args []string) {
 	switch args[1] {
 	case "secrets":
 		fmt.Println(" ---- Getting all secrets from the server ---- ")
-
-		com1 := command.CreateGetSecretsCommand(tempPublicKey, tempSecretKey, apiRoute+secretUri, tempRegion)
-
+		com1 := command.CreateGetSecretsCommand(userPublicKey, userSecretKey, apiRoute+secretUri, userRegion)
 		err := com1.Execute()
 		if err != nil {
 			// failed to retrive the secrets
@@ -107,8 +120,8 @@ func handleGet(args []string) {
 		}
 
 		// success
-		com2 := command.CreateSaveToFileSecretsCommand(tempSavedLocation, com1.Response)
-
+		fmt.Printf(" ---- Saving all secrets to CSV file at %s ---- \n", userSavedLocation)
+		com2 := command.CreateSaveToFileSecretsCommand(userSavedLocation, com1.Response)
 		err = com2.Execute()
 		if err != nil {
 			// failed to retrive the secrets
@@ -125,15 +138,41 @@ func handleGet(args []string) {
 			fmt.Println(" ---- Getting report about secret '" + args[2] + "' from the server ---- ")
 			// TODO
 		} else {
-			fmt.Println("usage: get report <secret_name> <force flag (not must)>")
+			fmt.Println(reportUsage)
 		}
 		return
+	default:
+		{
+			fmt.Println(getUsage)
+		}
 	}
 
 }
 
+func printBanner() {
+	fmt.Println(`
+    _______    _______    _______    _______    _______   _________       _______    _______    _          _______    _______    _______    _______       
+   (  ____ \  (  ____ \  (  ____ \  (  ____ )  (  ____ \  \__   __/      (       )  (  ___  )  ( (    /|  (  ___  )  (  ____ \  (  ____ \  (  ____ )
+   | (    \/  | (    \/  | (    \/  | (    )|  | (    \/     ) (         | () () |  | (   ) |  |  \  ( |  | (   ) |  | (    \/  | (    \/  | (    )|
+   | (_____   | (__      | |        | (____)|  | (__         | |         | || || |  | (___) |  |   \ | |  | (___) |  | |        | (__      | (____)|
+   (_____  )  |  __)     | |        |     __)  |  __)        | |         | |(_)| |  |  ___  |  | (\ \) |  |  ___  |  | | ____   |  __)     |     __)
+	 ) |  | (        | |        | (\ (     | (           | |         | |   | |  | (   ) |  | | \   |  | (   ) |  | | \_  )  | (        | (\ (   
+   /\____) |  | (____/\  | (____/\  | ) \ \__  | (____/\     | |         | )   ( |  | )   ( |  | )  \  |  | )   ( |  | (___) |  | (____/\  | ) \ \__
+   \_______)  (_______/  (_______/  |/   \__/  (_______/     )_(         |/     \|  |/     \|  |/    )_)  |/     \|  (_______)  (_______/  |/   \__/
+																																						  
+   `)
+}
+
+func handleHelp() {
+	fmt.Print("Cli Usage:\n\n")
+	fmt.Println(loadUsage)
+	fmt.Println()
+	fmt.Println(getUsage)
+}
+
 func startCli() {
-	// printStartMenu()
+	printBanner()
+	handleHelp()
 	for {
 		fmt.Print(">> ")
 		input := readInput()
@@ -145,7 +184,7 @@ func startCli() {
 
 		switch tokens[0] {
 		case "help":
-			// printStartMenu()
+			handleHelp()
 			continue
 		case "load":
 			handleLoad(tokens)
@@ -157,6 +196,7 @@ func startCli() {
 			handleClear()
 			continue
 		case "exit":
+			// TODO handle clean exit
 			return
 		}
 
