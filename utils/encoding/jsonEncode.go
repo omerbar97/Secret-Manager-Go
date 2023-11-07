@@ -9,7 +9,7 @@ import (
 func ToJson[T any](value T) ([]byte, error) {
 	jsonData, err := json.Marshal(value)
 	if err != nil {
-		return nil, fmt.Errorf("Error converting to JSON: %v", err)
+		return nil, fmt.Errorf("error converting to JSON: %v", err)
 	}
 	return jsonData, nil
 }
@@ -23,7 +23,7 @@ func FromJson[T any](data interface{}) (*T, error) {
 	}
 	err := json.Unmarshal(bytesVal, &valueToReturn)
 	if err != nil {
-		return nil, fmt.Errorf("Error decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 	return &valueToReturn, nil
 }
