@@ -33,7 +33,7 @@ func NewPersistCache(storagePath string) *PersistCache {
 		// loading the file name mapping
 		file, err := os.Open(fileCache.dirPath)
 		if err != nil {
-			fmt.Println("FileCache: Failed to create the dir")
+			fmt.Errorf("FileCache: Failed to create the dir: %v", err)
 			panic(err)
 		}
 		fileCache.HomeDir = file
@@ -70,7 +70,6 @@ func (f *PersistCache) createFile(fileName string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.fileNameList = append(f.fileNameList, fileName)
 	return file, nil
 }
 
@@ -105,8 +104,15 @@ func (f *PersistCache) Get(key string) (interface{}, error) {
 		return val, nil
 	}
 
+	// searching if the key is in the fast cache keys
+	for _, keyVal := range f.GetAllKeys() {
+		if keyVal == key {
+			return result, nil
+		}
+	}
+
 	// in fast layer
-	return result, nil
+	return nil, fmt.Errorf("key found in cache but was deleted before so")
 }
 func (f *PersistCache) Set(key string, value interface{}) error {
 	f.mutex.Lock()
@@ -117,8 +123,9 @@ func (f *PersistCache) Set(key string, value interface{}) error {
 			err := f.deleteFile(key)
 			if err != nil {
 				// maybe file was not there
-				fmt.Println("FileCache: Failed to delete file name:", key)
+				fmt.Errorf("FileCache: Failed to delete file name: %s", key)
 			}
+			f.fileNameList = removeStringFromList(f.fileNameList, key)
 			break
 		}
 	}
@@ -126,7 +133,7 @@ func (f *PersistCache) Set(key string, value interface{}) error {
 	// Setting new value
 	file, err := f.createFile(key)
 	if err != nil {
-		fmt.Println("FileCache: Error creating file: ", err)
+		fmt.Errorf("FileCache: Error creating file: %v", err)
 		return err
 	}
 	defer file.Close()
@@ -138,7 +145,7 @@ func (f *PersistCache) Set(key string, value interface{}) error {
 
 	_, err = file.Write(val)
 	if err != nil {
-		fmt.Println("FileCache: Error writing to file: ", err)
+		fmt.Errorf("fileCache: Error writing to file: %v", err)
 		return err
 	}
 

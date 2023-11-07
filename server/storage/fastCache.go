@@ -71,13 +71,20 @@ func (f *FastCache) Get(key string) (interface{}, error) {
 			return nil, err
 		} else {
 			// found in the other layer, applying it to the fast layer
-			f.safeSet(key, r)
+			f.safeSet(key, result)
 			f.changed[key] = false
 			return r, nil
 		}
 	}
+
+	// searching if the key is in the fast cache keys
+	for _, keyVal := range f.GetAllKeys() {
+		if keyVal == key {
+			return result, nil
+		}
+	}
 	// in fast layer
-	return result, nil
+	return nil, fmt.Errorf("key found in cache but was deleted before so")
 }
 
 func (f *FastCache) ActivateLayerSavingRuntime(intervals time.Duration) error {
@@ -117,6 +124,7 @@ func (f *FastCache) safeSet(key string, value interface{}) error {
 func (f *FastCache) Delete(key string) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
+	// for some reason thie Delete won't really delete from the cache
 	f.instance.Delete(key)
 	delete(f.changed, key)
 	return nil

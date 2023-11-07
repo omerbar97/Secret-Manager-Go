@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Holding the information of the secret
 type Secret struct {
@@ -9,6 +12,22 @@ type Secret struct {
 	Version      string
 	CreatedAt    time.Time
 	LastAccessed time.Time
+}
+
+func (s *Secret) ToJson() ([]byte, error) {
+	jsonData, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	return jsonData, nil
+}
+
+func (s *Secret) FromJson(value []byte) error {
+	err := json.Unmarshal(value, s)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Holding the information of the accesslog

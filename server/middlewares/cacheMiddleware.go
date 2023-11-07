@@ -50,7 +50,7 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		value, err := cache.Get(KeyArn)
 		if err != nil {
 			// was not found in cache, calling to next function
-			fmt.Println("MIDDILEWARE: User", publicKey, "arn list was not found in the cache")
+			fmt.Println("MIDDILEWARE: User", publicKey, "ARN list was not found in the cache")
 			// Setting the pass by value to the context
 			ctx := context.WithValue(ctx, "info", &toContext)
 			next.ServeHTTP(rw, r.WithContext(ctx))
