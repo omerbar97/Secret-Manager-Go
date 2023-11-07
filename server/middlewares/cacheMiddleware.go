@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang-secret-manager/server/api/aws"
-	"golang-secret-manager/server/storage"
+	"golang-secret-manager/api/aws"
+	"golang-secret-manager/utils/storage"
 	"golang-secret-manager/utils/types"
 	"net/http"
 )

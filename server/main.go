@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"golang-secret-manager/server/handlers"
 	"golang-secret-manager/server/middlewares"
-	"golang-secret-manager/server/storage"
+	"golang-secret-manager/utils/storage"
 	"log"
 	"net/http"
 	"time"

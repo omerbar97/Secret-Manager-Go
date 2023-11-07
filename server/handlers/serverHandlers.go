@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"golang-secret-manager/server/api/aws"
+	"golang-secret-manager/api/aws"
 	"golang-secret-manager/utils/types"
 	"net/http"
 )

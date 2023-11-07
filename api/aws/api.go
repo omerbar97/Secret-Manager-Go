@@ -3,7 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
-	"golang-secret-manager/server/storage"
+	"golang-secret-manager/utils/storage"
 	"golang-secret-manager/utils/types"
 	"log"
 )
