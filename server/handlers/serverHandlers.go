@@ -11,7 +11,8 @@ import (
 func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	ctx := r.Context()
-	fromContext, ok := ctx.Value("info").(types.FromGetAllSecretsMiddlewareToHandler)
+	contextKey := types.GetContextInforamtionKey()
+	fromContext, ok := ctx.Value(contextKey).(*types.FromGetAllSecretsMiddlewareToHandler)
 	if !ok {
 		fmt.Println("HANDLER: failed to convert the context value to the handler")
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Error Converting the context to the handler"})
@@ -26,9 +27,8 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// failed to retrive all of them, return bad request
 			fmt.Println("HANDLER: failed to retrive all the secrets and access log")
-			json.NewEncoder(rw).Encode(map[string]string{"error": "Error while trying to retrive all Secrets + Access Logs"})
-			// Setting code response
 			rw.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(rw).Encode(map[string]string{"error": "Error while trying to retrive all Secrets + Access Logs"})
 			return
 		}
 
@@ -38,8 +38,8 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 			AccessLog: val.AccessLog,
 		}
 
-		json.NewEncoder(rw).Encode(toSend)
 		rw.WriteHeader(http.StatusOK)
+		json.NewEncoder(rw).Encode(toSend)
 		return
 	}
 
@@ -74,8 +74,8 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 		AccessLog: fromContext.FoundedAccessLog,
 	}
 
-	json.NewEncoder(rw).Encode(toSend)
 	rw.WriteHeader(http.StatusOK)
+	json.NewEncoder(rw).Encode(toSend)
 }
 
 func GetReportsHandler(rw http.ResponseWriter, r *http.Request) {

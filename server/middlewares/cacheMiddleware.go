@@ -24,11 +24,9 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
-		fmt.Println("inside handler1")
 
 		// retriving the cache instance
-		cache := storage.GetCacheInstance()
-		fmt.Println("inside handler2")
+		cacheInstance := storage.GetCacheInstance()
 
 		// extraction body information
 		publicKey := reqBody.PublicKey
@@ -46,68 +44,40 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		// checking if user ARN list in cache
 		KeyArn := aws.GetCacheARNKey(publicKey)
-
-		value, err := cache.Get(KeyArn)
+		contextKey := types.GetContextInforamtionKey()
+		arnList, err := storage.GetCacheValue[[]string](cacheInstance, KeyArn)
 		if err != nil {
 			// was not found in cache, calling to next function
 			fmt.Println("MIDDILEWARE: User", publicKey, "ARN list was not found in the cache")
 			// Setting the pass by value to the context
-			ctx := context.WithValue(ctx, "info", &toContext)
-			next.ServeHTTP(rw, r.WithContext(ctx))
-			return
-		}
-
-		ArnList, arnOk := value.([]string)
-		if !arnOk {
-			// failed to convert the ArnList
-			fmt.Print("MIDDILEWARE: failed to convert the ARN list to []string that was in the cache")
-			// Setting the pass by value to the context
-			ctx := context.WithValue(ctx, "info", &toContext)
+			ctx := context.WithValue(ctx, contextKey, &toContext)
 			next.ServeHTTP(rw, r.WithContext(ctx))
 			return
 		}
 
 		allFound := true
 		foundedSecrets := make(map[string]types.Secret)
-		for _, arn := range ArnList {
+		for _, arn := range *arnList {
 			key := aws.GetCacheSecretKey(arn)
-			val, err := cache.Get(key)
+			val, err := storage.GetCacheValue[types.Secret](cacheInstance, key)
 			if err != nil {
 				// not in cache
 				allFound = false
 				continue
 			}
-
-			secret, ok := val.(types.Secret)
-			if !ok {
-				// failed to convert to secret
-				fmt.Println("failed to convert secret:", arn, "to type Secret")
-				allFound = false
-				continue
-			} else {
-				foundedSecrets[arn] = secret
-			}
+			foundedSecrets[arn] = *val
 		}
 
 		foundedAccessLog := make(map[string][]types.AccessLog)
-		for _, arn := range ArnList {
+		for _, arn := range *arnList {
 			key := aws.GetCacheAccessKey(arn)
-			val, err := cache.Get(key)
+			val, err := storage.GetCacheValue[[]types.AccessLog](cacheInstance, key)
 			if err != nil {
 				// not in cache
 				allFound = false
 				continue
 			}
-
-			accessLog, ok := val.([]types.AccessLog)
-			if !ok {
-				// failed to convert to secret
-				fmt.Println("failed to convert Access Log:", arn, "to type []AccessLog")
-				allFound = false
-				continue
-			} else {
-				foundedAccessLog[arn] = accessLog
-			}
+			foundedAccessLog[arn] = *val
 		}
 
 		if allFound {
@@ -125,17 +95,17 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				AccessLog: foundedAccessLog,
 			}
 
-			json.NewEncoder(rw).Encode(toSend)
 			rw.WriteHeader(http.StatusOK)
+			json.NewEncoder(rw).Encode(toSend)
 			return
 		}
 
 		toContext.FoundedAccessLog = foundedAccessLog
 		toContext.FoundedSecrets = foundedSecrets
-		toContext.FoundedArnList = arnOk
-		toContext.ArnList = ArnList
+		toContext.FoundedArnList = true
+		toContext.ArnList = *arnList
 
-		ctx = context.WithValue(ctx, "info", &toContext)
+		ctx = context.WithValue(ctx, contextKey, &toContext)
 
 		// Calling handler
 		next.ServeHTTP(rw, r.WithContext(ctx))

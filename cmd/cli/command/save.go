@@ -8,12 +8,13 @@ import (
 
 type SaveToFileSecretsCommand struct {
 	PathToSave string
-	value      types.AllSecretWithAccessLog
+	value      types.GetAllSecretsResponse
 }
 
-func CreateSaveToFileSecretsCommand(PathToSave string) *SaveToFileSecretsCommand {
+func CreateSaveToFileSecretsCommand(PathToSave string, val types.GetAllSecretsResponse) *SaveToFileSecretsCommand {
 	return &SaveToFileSecretsCommand{
 		PathToSave: PathToSave,
+		value:      val,
 	}
 }
 

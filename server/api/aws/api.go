@@ -42,7 +42,16 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 			nextToken = result.NextToken
 			trys--
 		} else {
-			// retrived all
+			// got all secrets
+			for _, secret := range result.Secrets {
+				// caching the secrets
+				key := GetCacheSecretKey(secret.ARN)
+				storage.SetCacheValue[types.Secret](cacheInstance, key, secret)
+				if err != nil {
+					log.Println("API-AWS: failed to cache the secret", secret.ARN)
+				}
+			}
+			allSecrets = append(allSecrets, result.Secrets...)
 			break
 		}
 		if trys == 0 {
@@ -52,6 +61,7 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 
 		for _, secret := range result.Secrets {
 			key := GetCacheSecretKey(secret.ARN)
+			log.Println("found secret: ", secret.ARN) // TEST
 			storage.SetCacheValue[types.Secret](cacheInstance, key, secret)
 			if err != nil {
 				log.Println("API-AWS: failed to cache the secret", secret.ARN)

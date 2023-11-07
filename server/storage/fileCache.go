@@ -33,7 +33,7 @@ func NewPersistCache(storagePath string) *PersistCache {
 		// loading the file name mapping
 		file, err := os.Open(fileCache.dirPath)
 		if err != nil {
-			fmt.Errorf("FileCache: Failed to create the dir: %v", err)
+			// FileCache: Failed to create the dir
 			panic(err)
 		}
 		fileCache.HomeDir = file
@@ -123,7 +123,7 @@ func (f *PersistCache) Set(key string, value interface{}) error {
 			err := f.deleteFile(key)
 			if err != nil {
 				// maybe file was not there
-				fmt.Errorf("FileCache: Failed to delete file name: %s", key)
+				fmt.Printf("FileCache: Failed to delete file name: %s", key)
 			}
 			f.fileNameList = removeStringFromList(f.fileNameList, key)
 			break
@@ -133,8 +133,7 @@ func (f *PersistCache) Set(key string, value interface{}) error {
 	// Setting new value
 	file, err := f.createFile(key)
 	if err != nil {
-		fmt.Errorf("FileCache: Error creating file: %v", err)
-		return err
+		return fmt.Errorf("FileCache: Error creating file: %v", err)
 	}
 	defer file.Close()
 
@@ -145,8 +144,7 @@ func (f *PersistCache) Set(key string, value interface{}) error {
 
 	_, err = file.Write(val)
 	if err != nil {
-		fmt.Errorf("fileCache: Error writing to file: %v", err)
-		return err
+		return fmt.Errorf("fileCache: Error writing to file: %v", err)
 	}
 
 	// adding to the file names

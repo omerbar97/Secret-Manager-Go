@@ -52,7 +52,7 @@ func GetCacheInstance() ICache {
 
 func (f *FastCache) GetAllKeys() []string {
 	var list []string
-	for key, _ := range f.changed {
+	for key := range f.changed {
 		list = append(list, key)
 	}
 	return list

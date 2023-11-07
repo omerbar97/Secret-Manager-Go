@@ -107,7 +107,7 @@ func handleGet(args []string) {
 		}
 
 		// success
-		com2 := command.CreateSaveToFileSecretsCommand(tempSavedLocation)
+		com2 := command.CreateSaveToFileSecretsCommand(tempSavedLocation, com1.Response)
 
 		err = com2.Execute()
 		if err != nil {

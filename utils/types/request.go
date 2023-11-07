@@ -12,3 +12,13 @@ type GetReportRequest struct {
 	Region    string `json:"region"`
 	SecretID  string `json:"secret_id"`
 }
+
+// When passing the value of the context to another handler/middleware
+// will use this string
+type contextKey string
+
+var toContextKey contextKey = "contextFromHandler"
+
+func GetContextInforamtionKey() contextKey {
+	return toContextKey
+}
