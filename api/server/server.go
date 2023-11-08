@@ -7,18 +7,23 @@ import (
 	"golang-secret-manager/utils/storage"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
 type HttpServer struct {
-	ctx  context.Context
-	Addr string
+	ctx    context.Context
+	server *http.Server
 }
 
-func NewHttpServer(Addr string, ctx context.Context) *HttpServer {
+func NewHttpServer(addr string, ctx context.Context) *HttpServer {
 	return &HttpServer{
-		Addr: Addr,
-		ctx:  ctx,
+		ctx: ctx,
+		server: &http.Server{
+			Addr: addr,
+		},
 	}
 }
 
@@ -34,8 +39,19 @@ func (s *HttpServer) Start() error {
 		middleware.GetReportMiddleware(handler.MakeHTTPHandleFuncDecoder(handler.GetReportsHandler))(w, r.WithContext(s.ctx))
 	})
 
-	log.Println("SERVER: Starting Server on port", s.Addr)
-	return http.ListenAndServe(s.Addr, nil)
+	log.Println("SERVER: Starting Server on port", s.server.Addr)
+	return http.ListenAndServe(s.server.Addr, nil)
+}
+
+func (s *HttpServer) ShutDown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.server.Shutdown(ctx); err != nil {
+		log.Printf("SERVER: Error shutting down server: %s", err)
+	} else {
+		log.Println("SERVER: Server gracefully stopped")
+	}
 }
 
 func main() {
@@ -47,13 +63,26 @@ func main() {
 	cacheDuration := 5 * time.Minute
 	fastCache := storage.NewFastCache(cacheDuration)
 
-	fastCache.SetCacheLayer(persistCache, true)
+	if err := fastCache.SetCacheLayer(persistCache, true); err != nil {
+		log.Fatalln("failed to init fast cache")
+	}
 	fastCache.ActivateLayerSavingRuntime(20 * time.Second)
 	// End setting up cache system
 
 	ctx := context.Background()
 
 	httpServer := NewHttpServer(":8080", ctx)
+
+	// Thread that handle the Ctrl + C signal
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT)
+	go func() {
+		<-ch
+		// exiting program
+		log.Println("Shuting down server...")
+		httpServer.ShutDown()
+	}()
+
 	if err := httpServer.Start(); err != nil {
 		log.Println("SERVER: failed to create server")
 	}

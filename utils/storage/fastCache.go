@@ -2,7 +2,10 @@ package storage
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -102,13 +105,21 @@ func (f *FastCache) ActivateLayerSavingRuntime(intervals time.Duration) error {
 	if f.layer == nil {
 		return fmt.Errorf("there is no another layer to the cache")
 	}
+
+	ticker := time.NewTicker(intervals)
+	defer ticker.Stop()
+
+	osChanel := make(chan os.Signal, 1)
+	signal.Notify(osChanel, syscall.SIGINT)
+
 	go func() {
 		for {
 			select {
-			case <-f.ch:
-				fmt.Println("Stopping the Saving Runtime...")
+			case <-osChanel:
+				fmt.Println("Stopping the Saving Runtime... Please Press Again Ctrl + C To Exit")
+				signal.Reset(syscall.SIGINT)
 				return
-			default:
+			case <-ticker.C:
 				// Saving all the changed to the files
 				tempChangedKeys := f.changed
 				for key, val := range tempChangedKeys {
@@ -125,8 +136,6 @@ func (f *FastCache) ActivateLayerSavingRuntime(intervals time.Duration) error {
 						}
 					}
 				}
-				// Sleep for the defined interval
-				time.Sleep(intervals)
 			}
 		}
 	}()

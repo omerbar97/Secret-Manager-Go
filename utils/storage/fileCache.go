@@ -78,7 +78,7 @@ func (f *PersistCache) createFile(fileName string) (*os.File, error) {
 // 	Get(key string) (interface{}, error)
 // 	Set(key string, value interface{}) error
 // 	Delete(key string) error
-// 	SetCacheLayer(layer ICache)
+// 	SetCacheLayer(layer ICache) error
 // 	ActivateLayerSavingRuntime(intervals time.Duration) error
 // 	LayerSet(key string, value interface{}) error
 // }
