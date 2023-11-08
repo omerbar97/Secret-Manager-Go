@@ -180,9 +180,8 @@ func (f *FastCache) SetCacheLayer(layer ICache, load bool) error {
 
 	// if load == true then loading the lower cache to the upper cache
 	if load {
-		lst := f.GetAllKeys()
+		lst := f.layer.GetAllKeys()
 		for _, key := range lst {
-			fmt.Println("found key: ", key)
 			item, err := f.layer.Get(key)
 			if err != nil {
 				// failed to get key..
