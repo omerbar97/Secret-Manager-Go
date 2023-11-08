@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	GenericEncoding "golang-secret-manager/utils/encoding"
+	GenericEncoding "golang-secret-manager/utils/genericEncoding"
 	"reflect"
 	"time"
 )

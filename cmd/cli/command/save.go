@@ -2,7 +2,7 @@ package command
 
 import (
 	"fmt"
-	"golang-secret-manager/utils/types"
+	"golang-secret-manager/types"
 	"os"
 )
 

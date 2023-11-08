@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang-secret-manager/utils/types"
+	"golang-secret-manager/types"
 	"net/http"
 )
 

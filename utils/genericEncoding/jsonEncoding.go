@@ -3,7 +3,26 @@ package GenericEncoding
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 )
+
+// HelperFunc to write back json to the client
+func WriteJson(rw http.ResponseWriter, status int, v any) error {
+	rw.WriteHeader(status)
+	rw.Header().Add("Content-Type", "application/json")
+	return json.NewEncoder(rw).Encode(v)
+}
+
+// Decoding the json body from a request
+func JsonBodyDecoder[T any](r *http.Request) (*T, error) {
+	var v T
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&v)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
 
 // ToJson serializes the input value to JSON
 func ToJson[T any](value T) ([]byte, error) {

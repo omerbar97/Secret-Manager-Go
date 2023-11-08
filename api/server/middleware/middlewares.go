@@ -1,12 +1,12 @@
-package middlewares
+package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"golang-secret-manager/api/aws"
+	"golang-secret-manager/types"
+	GenericEncoding "golang-secret-manager/utils/genericEncoding"
 	"golang-secret-manager/utils/storage"
-	"golang-secret-manager/utils/types"
 	"net/http"
 )
 
@@ -15,13 +15,18 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// Decoding the request body
 		defer r.Body.Close()
-		var reqBody types.GetAllSecretsRequest
-		decoder := json.NewDecoder(r.Body)
-		err := decoder.Decode(&reqBody)
+		// var reqBody types.GetAllSecretsRequest
+		reqBody, err := GenericEncoding.JsonBodyDecoder[types.GetAllSecretsRequest](r)
 		if err != nil {
-			http.Error(rw, "Failed to decode JSON data", http.StatusBadRequest)
+			GenericEncoding.WriteJson(rw, http.StatusBadRequest, types.ApiError{Err: "request body not matched!", Status: http.StatusBadRequest})
 			return
 		}
+		// decoder := json.NewDecoder(r.Body)
+		// err := decoder.Decode(&reqBody)
+		// if err != nil {
+		// 	http.Error(rw, "Failed to decode JSON data", http.StatusBadRequest)
+		// 	return
+		// }
 
 		ctx := r.Context()
 
@@ -95,8 +100,9 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				AccessLog: foundedAccessLog,
 			}
 
-			rw.WriteHeader(http.StatusOK)
-			json.NewEncoder(rw).Encode(toSend)
+			if err := GenericEncoding.WriteJson(rw, http.StatusOK, toSend); err != nil {
+				fmt.Println("MIDDILEWARE: failed to send back to client information")
+			}
 			return
 		}
 

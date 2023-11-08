@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang-secret-manager/utils/types"
+	"golang-secret-manager/types"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"

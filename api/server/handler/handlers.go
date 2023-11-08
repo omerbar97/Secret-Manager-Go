@@ -1,24 +1,38 @@
-package handlers
+package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"golang-secret-manager/api/aws"
-	"golang-secret-manager/utils/types"
+	"golang-secret-manager/types"
+	GenericEncoding "golang-secret-manager/utils/genericEncoding"
 	"net/http"
 )
 
-func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
+// Transforitm the apiHandler to the http.HandlerFunc
+func MakeHTTPHandleFuncDecoder(handler types.ApiHandlerFunc) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		if err := handler(rw, r); err != nil {
+			// got error
+			apiErr, ok := err.(*types.ApiError)
+			if !ok {
+				// some other error
+				GenericEncoding.WriteJson(rw, http.StatusInternalServerError, types.ApiError{Err: "internal error", Status: http.StatusInternalServerError})
+				return
+			}
+			// apiErr is type apiError
+			GenericEncoding.WriteJson(rw, apiErr.Status, apiErr.Err)
+		}
+	}
+}
+
+func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) error {
 	defer r.Body.Close()
 	ctx := r.Context()
 	contextKey := types.GetContextInforamtionKey()
 	fromContext, ok := ctx.Value(contextKey).(*types.FromGetAllSecretsMiddlewareToHandler)
 	if !ok {
 		fmt.Println("HANDLER: failed to convert the context value to the handler")
-		json.NewEncoder(rw).Encode(map[string]string{"error": "Error Converting the context to the handler"})
-		// setting response code
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
+		return &types.ApiError{Err: "Error Converting the context to the handler", Status: http.StatusInternalServerError}
 	}
 
 	if !fromContext.FoundedArnList {
@@ -27,9 +41,7 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// failed to retrive all of them, return bad request
 			fmt.Println("HANDLER: failed to retrive all the secrets and access log")
-			rw.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(rw).Encode(map[string]string{"error": "Error while trying to retrive all Secrets + Access Logs"})
-			return
+			return &types.ApiError{Err: "Error while trying to retrive all Secrets + Access Logs", Status: http.StatusInternalServerError}
 		}
 
 		// sending back to the client the anwser
@@ -38,9 +50,11 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 			AccessLog: val.AccessLog,
 		}
 
-		rw.WriteHeader(http.StatusOK)
-		json.NewEncoder(rw).Encode(toSend)
-		return
+		if err = GenericEncoding.WriteJson(rw, http.StatusOK, toSend); err != nil {
+			// failed sending back to client
+			fmt.Println("HANDLER: failed to send back to client information")
+		}
+		return nil
 	}
 
 	// maybe some of the data was found, for what not using the api to retrive the
@@ -73,11 +87,14 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) {
 		Secrets:   secretList,
 		AccessLog: fromContext.FoundedAccessLog,
 	}
-
-	rw.WriteHeader(http.StatusOK)
-	json.NewEncoder(rw).Encode(toSend)
+	if err := GenericEncoding.WriteJson(rw, http.StatusOK, toSend); err != nil {
+		// failed sending back to client
+		fmt.Println("HANDLER: failed to send back to client information")
+	}
+	return nil
 }
 
-func GetReportsHandler(rw http.ResponseWriter, r *http.Request) {
+func GetReportsHandler(rw http.ResponseWriter, r *http.Request) error {
 	// TODO
+	return nil
 }
