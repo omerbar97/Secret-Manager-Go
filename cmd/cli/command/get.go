@@ -2,9 +2,9 @@ package command
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"golang-secret-manager/types"
+	GenericEncoding "golang-secret-manager/utils/genericEncoding"
 	"net/http"
 )
 
@@ -42,28 +42,26 @@ func (s *GetSecretsCommand) Execute() error {
 	req, err := http.Post(s.ApiRoute, "application/json", payload)
 	if err != nil {
 		// Handle the error
-		fmt.Println("Error retrieving secrets from server: ", err)
-		return err
+		return fmt.Errorf("error retrieving secrets from server: %v", err)
 	}
 
 	defer req.Body.Close()
-	var res types.GetAllSecretsResponse
-	if req.StatusCode == 200 {
+	if req.StatusCode == http.StatusOK {
 		// retriving the list of secrets from the request
-		err := json.NewDecoder(req.Body).Decode(&res)
+		valRes, err := GenericEncoding.JsonBodyDecoder[types.GetAllSecretsResponse](req.Body)
 		if err != nil {
-			fmt.Println("Error decoding response: ", err)
-			return err
+			return fmt.Errorf("failed to decode error from the server: %v", err)
 		}
-		s.Response = res
+		s.Response = *valRes
 	} else {
 		// printing the error
-		var Response struct {
-			Error string `json:"error"`
+		valErr, err := GenericEncoding.JsonBodyDecoder[types.ApiError](req.Body)
+		if err != nil {
+			// failed to decode error
+			return fmt.Errorf("failed to decode error from the server")
+		} else {
+			return fmt.Errorf(valErr.Err)
 		}
-		json.NewDecoder(req.Body).Decode(&Response)
-		fmt.Println("Error retrieving secrets from server: ", Response.Error)
-		return fmt.Errorf(res.Error)
 	}
 	return nil
 }
@@ -106,27 +104,27 @@ func (s *GetReportByIdCommand) Execute() error {
 	req, err := http.Post(s.ApiRoute, "application/json", payload)
 	if err != nil {
 		// Handle the error
-		fmt.Println("Error retrieving secrets from server")
-		return err
+		return fmt.Errorf("error retrieving secrets from server: %v", err)
 	}
 
 	defer req.Body.Close()
 
-	var res types.GetReportResponse
 	if req.StatusCode == 200 {
 		// retriving the list of secrets from the request
-		err := json.NewDecoder(req.Body).Decode(&res)
+		valRes, err := GenericEncoding.JsonBodyDecoder[types.GetReportResponse](req.Body)
 		if err != nil {
-			fmt.Println("Error decoding response: ", err)
-			return err
+			return fmt.Errorf("error decoding response: %v", err)
 		}
-		s.Response = res
+		s.Response = *valRes
 	} else {
 		// printing the error
-		res.Error = "Failed to retrive report from the server"
-		json.NewDecoder(req.Body).Decode(&res)
-		fmt.Println("Error retrieving report for", s.SecretID, "from server!")
-		return fmt.Errorf(res.Error)
+		valErr, err := GenericEncoding.JsonBodyDecoder[types.ApiError](req.Body)
+		if err != nil {
+			// failed to decode error
+			return fmt.Errorf("failed to retrive report from the server")
+		} else {
+			return fmt.Errorf(valErr.Err)
+		}
 	}
 	return nil
 }

@@ -16,7 +16,7 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		// Decoding the request body
 		defer r.Body.Close()
 		// var reqBody types.GetAllSecretsRequest
-		reqBody, err := GenericEncoding.JsonBodyDecoder[types.GetAllSecretsRequest](r)
+		reqBody, err := GenericEncoding.JsonBodyDecoder[types.GetAllSecretsRequest](r.Body)
 		if err != nil {
 			GenericEncoding.WriteJson(rw, http.StatusBadRequest, types.ApiError{Err: "request body not matched!", Status: http.StatusBadRequest})
 			return

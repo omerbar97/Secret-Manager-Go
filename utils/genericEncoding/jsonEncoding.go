@@ -3,6 +3,7 @@ package GenericEncoding
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -14,9 +15,9 @@ func WriteJson(rw http.ResponseWriter, status int, v any) error {
 }
 
 // Decoding the json body from a request
-func JsonBodyDecoder[T any](r *http.Request) (*T, error) {
+func JsonBodyDecoder[T any](r io.Reader) (*T, error) {
 	var v T
-	decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&v)
 	if err != nil {
 		return nil, err
