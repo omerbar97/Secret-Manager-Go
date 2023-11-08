@@ -109,7 +109,7 @@ func (s *GetReportByIdCommand) Execute() error {
 
 	defer req.Body.Close()
 
-	if req.StatusCode == 200 {
+	if req.StatusCode == http.StatusOK {
 		// retriving the list of secrets from the request
 		valRes, err := GenericEncoding.JsonBodyDecoder[types.GetReportResponse](req.Body)
 		if err != nil {

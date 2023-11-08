@@ -11,4 +11,10 @@ type FromGetAllSecretsMiddlewareToHandler struct {
 }
 
 type FromGetReportMiddlewareToHandler struct {
+	FoundedSecret    *Secret
+	FoundedAccessLog []AccessLog
+	PublicKey        string
+	SecretKey        string
+	SecretID         string
+	Region           string
 }

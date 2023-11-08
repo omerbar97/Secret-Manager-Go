@@ -96,6 +96,44 @@ func handleLoad(args []string) {
 	}
 }
 
+func handleGetSecret() {
+	fmt.Println(" ---- Getting all secrets from the server ---- ")
+	com1 := command.CreateGetSecretsCommand(userPublicKey, userSecretKey, apiRoute+secretUri, userRegion)
+	err := com1.Execute()
+	if err != nil {
+		// failed to retrive the secrets
+		fmt.Println(" ----------- FAILED TO RETRIVE ----------- ")
+		return
+	}
+
+	// success
+	fmt.Printf(" ---- Saving all secrets to CSV file at %s ---- \n", userSavedLocation)
+	com2 := command.CreateSaveToFileSecretsCommand(userSavedLocation, com1.Response)
+	err = com2.Execute()
+	if err != nil {
+		// failed to retrive the secrets
+		fmt.Println(" ------------- FAILED TO SAVE ------------- ")
+		return
+	}
+	// success
+	fmt.Println("Done! ")
+}
+
+func handleGetReport(secretID string) {
+	fmt.Println(" ---- Getting report about secret '" + secretID + "' from the server ---- ")
+
+	com := command.CreateGetReportByIdCommand(userPublicKey, userSecretKey, secretID, apiRoute+reportUri, userRegion)
+
+	if err := com.Execute(); err != nil {
+		// failed to get report
+		fmt.Println(" ----------- FAILED TO RETRIVE ----------- ")
+	} else {
+		// printing the report
+		fmt.Println("Done! ")
+		fmt.Println(com.Response.Report)
+	}
+}
+
 func handleGet(args []string) {
 	length := len(args)
 	if length != 2 && length != 3 {
@@ -110,33 +148,11 @@ func handleGet(args []string) {
 
 	switch args[1] {
 	case "secrets":
-		fmt.Println(" ---- Getting all secrets from the server ---- ")
-		com1 := command.CreateGetSecretsCommand(userPublicKey, userSecretKey, apiRoute+secretUri, userRegion)
-		err := com1.Execute()
-		if err != nil {
-			// failed to retrive the secrets
-			fmt.Println(" ----------- FAILED TO RETRIVE ----------- ")
-			return
-		}
-
-		// success
-		fmt.Printf(" ---- Saving all secrets to CSV file at %s ---- \n", userSavedLocation)
-		com2 := command.CreateSaveToFileSecretsCommand(userSavedLocation, com1.Response)
-		err = com2.Execute()
-		if err != nil {
-			// failed to retrive the secrets
-			fmt.Println(" ------------- FAILED TO SAVE ------------- ")
-			return
-		}
-
-		// success
-		fmt.Println(" ------------- Done! ------------- ")
+		handleGetSecret()
 		return
 	case "report":
 		if len(args) == 3 {
-			// getting report about secret args[2]
-			fmt.Println(" ---- Getting report about secret '" + args[2] + "' from the server ---- ")
-			// TODO
+			handleGetReport(args[2])
 		} else {
 			fmt.Println(reportUsage)
 		}

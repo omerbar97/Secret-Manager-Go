@@ -31,6 +31,7 @@ func (s *HttpServer) Start() error {
 
 	http.HandleFunc("/reports", func(w http.ResponseWriter, r *http.Request) {
 		// applying middileware
+		middleware.GetReportMiddleware(handler.MakeHTTPHandleFuncDecoder(handler.GetReportsHandler))(w, r.WithContext(s.ctx))
 	})
 
 	log.Println("SERVER: Starting Server on port", s.Addr)

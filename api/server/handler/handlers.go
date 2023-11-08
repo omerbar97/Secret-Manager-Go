@@ -5,6 +5,7 @@ import (
 	"golang-secret-manager/api/aws"
 	"golang-secret-manager/types"
 	GenericEncoding "golang-secret-manager/utils/genericEncoding"
+	"log"
 	"net/http"
 )
 
@@ -16,11 +17,15 @@ func MakeHTTPHandleFuncDecoder(handler types.ApiHandlerFunc) http.HandlerFunc {
 			apiErr, ok := err.(*types.ApiError)
 			if !ok {
 				// some other error
-				GenericEncoding.WriteJson(rw, http.StatusInternalServerError, types.ApiError{Err: "internal error", Status: http.StatusInternalServerError})
+				if err := GenericEncoding.WriteJson(rw, http.StatusInternalServerError, types.ApiError{Err: "internal error", Status: http.StatusInternalServerError}); err != nil {
+					log.Printf("failed to write json to client %v", err)
+				}
 				return
 			}
 			// apiErr is type apiError
-			GenericEncoding.WriteJson(rw, apiErr.Status, apiErr.Err)
+			if err := GenericEncoding.WriteJson(rw, apiErr.Status, apiErr.Err); err != nil {
+				log.Printf("failed to write json to client %v", err)
+			}
 		}
 	}
 }
@@ -95,6 +100,42 @@ func GetAllSecretsHandlers(rw http.ResponseWriter, r *http.Request) error {
 }
 
 func GetReportsHandler(rw http.ResponseWriter, r *http.Request) error {
-	// TODO
+	defer r.Body.Close()
+	ctx := r.Context()
+	contextKey := types.GetContextInforamtionKey()
+	fromContext, ok := ctx.Value(contextKey).(*types.FromGetReportMiddlewareToHandler)
+	if !ok {
+		fmt.Println("HANDLER: failed to convert the context value to the handler")
+		return &types.ApiError{Err: "Error Converting the context to the handler", Status: http.StatusInternalServerError}
+	}
+
+	if fromContext.FoundedSecret == nil {
+		// retriving the secret from AWS api
+		secret, err := aws.GetSecretById(ctx, fromContext.PublicKey, fromContext.SecretKey, fromContext.SecretID, fromContext.Region)
+		if err != nil {
+			// failed to retrive secret from AWS api
+			return &types.ApiError{Err: "failed to retrive Secret from API", Status: http.StatusBadRequest}
+		}
+		fromContext.FoundedSecret = secret
+	}
+
+	if fromContext.FoundedAccessLog == nil {
+		// retriving the access log from AWS api
+		access, err := aws.GetAccessLog(ctx, fromContext.PublicKey, fromContext.SecretKey, fromContext.SecretID, fromContext.Region)
+		if err != nil {
+			return &types.ApiError{Err: "failed to retrive Access Log from API", Status: http.StatusBadRequest}
+		}
+		fromContext.FoundedAccessLog = access
+	}
+
+	// writing to the client back
+	report := aws.GenerateReportStringBySecret(*fromContext.FoundedSecret, fromContext.FoundedAccessLog)
+	toSend := types.GetReportResponse{
+		Report: report,
+	}
+
+	if err := GenericEncoding.WriteJson(rw, http.StatusOK, toSend); err != nil {
+		log.Printf("failed to write json to client %v", err)
+	}
 	return nil
 }

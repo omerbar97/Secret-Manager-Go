@@ -21,6 +21,14 @@ func GetCacheARNKey(publicKey string) string {
 	return "arnlst" + publicKey
 }
 
+func createARNList(secrets []types.Secret) []string {
+	var lst []string
+	for _, s := range secrets {
+		lst = append(lst, s.ARN)
+	}
+	return lst
+}
+
 func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secretKey string, region string) (*types.AllSecretWithAccessLog, error) {
 	// creating the AWS client
 	client, err := NewAWSClient(ctx, publicKey, secretKey, region)
@@ -74,7 +82,7 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 	// for each secrets retriving the access log
 	accessLogMap := make(map[string][]types.AccessLog)
 	for _, secret := range allSecrets {
-		accesslog, err := getAccessLog(client, secret.ARN)
+		accesslog, err := getAccessLogWithTrys(client, secret.ARN)
 		if err != nil {
 			// failed to retrived all the access log
 			continue
@@ -104,15 +112,7 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 	return &retVal, nil
 }
 
-func createARNList(secrets []types.Secret) []string {
-	var lst []string
-	for _, s := range secrets {
-		lst = append(lst, s.ARN)
-	}
-	return lst
-}
-
-func getAccessLog(client IAWSClient, secretID string) ([]types.AccessLog, error) {
+func getAccessLogWithTrys(client IAWSClient, secretID string) ([]types.AccessLog, error) {
 	var accessLogList []types.AccessLog
 	var nextToken *string = nil
 	trys := 5
@@ -138,6 +138,54 @@ func getAccessLog(client IAWSClient, secretID string) ([]types.AccessLog, error)
 		accessLogList = append(accessLogList, accessLogs.AccessLog...)
 	}
 	return accessLogList, nil
+}
+
+func GetAccessLog(ctx context.Context, publicKey string, secretKey string, secretID string, region string) ([]types.AccessLog, error) {
+	client, err := NewAWSClient(ctx, publicKey, secretKey, region)
+	if err != nil {
+		// failed to create AWSClient
+		log.Println("API-AWS: failed to create AWSClient")
+		return nil, err
+	}
+
+	cacheInstance := storage.GetCacheInstance()
+
+	if accessLog, err := getAccessLogWithTrys(client, secretID); err != nil {
+		// failed to retrive access log
+		return nil, err
+	} else {
+		// caching the accesslog
+		key := GetCacheAccessKey(secretID)
+		if err := storage.SetCacheValue[[]types.AccessLog](cacheInstance, key, accessLog); err != nil {
+			// failed to cache instance
+			fmt.Println("API-AWS: failed to cache access logs")
+		}
+		return accessLog, nil
+	}
+
+}
+func GetSecretById(ctx context.Context, publicKey string, secretKey string, secretID string, region string) (*types.Secret, error) {
+	client, err := NewAWSClient(ctx, publicKey, secretKey, region)
+	if err != nil {
+		// failed to create AWSClient
+		log.Println("API-AWS: failed to create AWSClient")
+		return nil, err
+	}
+
+	cacheInstance := storage.GetCacheInstance()
+
+	if secret, err := client.GetSecretById(secretID); err != nil {
+		// failed to retrive secred
+		return nil, err
+	} else {
+		// caching the secret
+		key := GetCacheSecretKey(secretID)
+		if err := storage.SetCacheValue[types.Secret](cacheInstance, key, *secret); err != nil {
+			// failed to cache instance
+			fmt.Println("API-AWS: failed to cache secret")
+		}
+		return secret, nil
+	}
 }
 
 func GetSecretByIdWithAccessLog(ctx context.Context, publicKey string, secretKey string, secretID string, region string) (*types.SingleSecretWithAccessLog, error) {
@@ -171,7 +219,7 @@ func GetSecretByIdWithAccessLog(ctx context.Context, publicKey string, secretKey
 	}
 
 	// getting the secret accesslog
-	accessLogList, err := getAccessLog(client, secretID)
+	accessLogList, err := getAccessLogWithTrys(client, secretID)
 	if err != nil {
 		// failed to retrive all access log
 		return nil, err
@@ -215,10 +263,10 @@ func GenerateReportStringBySecret(secret types.Secret, accessLog []types.AccessL
 	fmt.Println("API-AWS: Generating Report For", secret.ARN)
 	// MetaData
 	report := " # Secret Metadata: \n"
-	report += fmt.Sprintf(" - Secret Name: %s\n", secret.Name)
-	report += fmt.Sprintf(" - Secret Created At: %s\n", secret.CreatedAt)
-	report += fmt.Sprintf(" - Secret Last Accessed: %s\n", secret.LastAccessed)
-	report += fmt.Sprintf(" - Secret ARN: %s\n", secret.ARN)
+	report += fmt.Sprintf(" - Secret Name: 		%s\n", secret.Name)
+	report += fmt.Sprintf(" - Secret Created At:	   	%s\n", secret.CreatedAt)
+	report += fmt.Sprintf(" - Secret Last Accessed: 	%s\n", secret.LastAccessed)
+	report += fmt.Sprintf(" - Secret ARN: 			%s\n", secret.ARN)
 
 	// AccessLog
 	report += " - Secret Access Log: \n"

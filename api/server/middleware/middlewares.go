@@ -15,25 +15,18 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// Decoding the request body
 		defer r.Body.Close()
-		// var reqBody types.GetAllSecretsRequest
 		reqBody, err := GenericEncoding.JsonBodyDecoder[types.GetAllSecretsRequest](r.Body)
 		if err != nil {
-			GenericEncoding.WriteJson(rw, http.StatusBadRequest, types.ApiError{Err: "request body not matched!", Status: http.StatusBadRequest})
+			GenericEncoding.WriteJson(rw, http.StatusBadRequest, types.ApiError{Err: "request body didn't matched!", Status: http.StatusBadRequest})
 			return
 		}
-		// decoder := json.NewDecoder(r.Body)
-		// err := decoder.Decode(&reqBody)
-		// if err != nil {
-		// 	http.Error(rw, "Failed to decode JSON data", http.StatusBadRequest)
-		// 	return
-		// }
 
 		ctx := r.Context()
 
 		// retriving the cache instance
 		cacheInstance := storage.GetCacheInstance()
 
-		// extraction body information
+		// extraction publicKey from body
 		publicKey := reqBody.PublicKey
 
 		// Structure that will be pass to the handler
@@ -121,6 +114,61 @@ func GetAllSecretsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // Before handling the request checking if the Secret already in cache for fast access
 func GetReportMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		reqBody, err := GenericEncoding.JsonBodyDecoder[types.GetReportRequest](r.Body)
+		if err != nil {
+			GenericEncoding.WriteJson(rw, http.StatusBadRequest, types.ApiError{Err: "request body didn't matched!", Status: http.StatusBadRequest})
+			return
+		}
 
+		ctx := r.Context()
+
+		// retriving the cache instance
+		cacheInstance := storage.GetCacheInstance()
+
+		keyForSecret := aws.GetCacheSecretKey(reqBody.SecretID)
+		keyForAccessLog := aws.GetCacheAccessKey(reqBody.SecretID)
+
+		allFound := true
+
+		toContext := types.FromGetReportMiddlewareToHandler{
+			FoundedSecret:    nil,
+			FoundedAccessLog: nil,
+			PublicKey:        reqBody.PublicKey,
+			SecretKey:        reqBody.SecretKey,
+			SecretID:         reqBody.SecretID,
+			Region:           reqBody.Region,
+		}
+
+		if secret, err := storage.GetCacheValue[types.Secret](cacheInstance, keyForSecret); err != nil {
+			// secret not in memory
+			fmt.Println("MIDDILEWARE: Secret id:", reqBody.SecretID, "not in cache")
+			allFound = false
+		} else {
+			toContext.FoundedSecret = secret
+		}
+
+		if access, err := storage.GetCacheValue[[]types.AccessLog](cacheInstance, keyForAccessLog); err != nil {
+			fmt.Println("MIDDILEWARE: Secret id:", reqBody.SecretID, "Access log was not in cache")
+			allFound = false
+		} else {
+			toContext.FoundedAccessLog = *access
+		}
+
+		if !allFound {
+			// need to call the handler to retrive the missing information
+			contextKey := types.GetContextInforamtionKey()
+			ctx = context.WithValue(ctx, contextKey, &toContext)
+			next.ServeHTTP(rw, r.WithContext(ctx))
+		} else {
+			// sending to the user the report
+			report := aws.GenerateReportStringBySecret(*toContext.FoundedSecret, toContext.FoundedAccessLog)
+			toReturn := types.GetReportResponse{
+				Report: report,
+			}
+			if err := GenericEncoding.WriteJson(rw, http.StatusOK, toReturn); err != nil {
+				fmt.Println("MIDDILEWARE: failed to send back to client information")
+			}
+		}
 	})
 }
