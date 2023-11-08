@@ -39,13 +39,13 @@ func NewPersistCache(storagePath string) *PersistCache {
 		fileCache.HomeDir = file
 
 		// getting all the file names
-		fileNames, err := file.Readdirnames(0)
+		files, err := file.Readdir(-1)
 		if err != nil {
-			// Failed to Get files name
 			panic(err)
 		}
-		fileCache.fileNameList = fileNames
-
+		for _, file := range files {
+			fileCache.fileNameList = append(fileCache.fileNameList, file.Name())
+		}
 	})
 	return fileCache
 }
@@ -167,8 +167,12 @@ func (f *PersistCache) Delete(key string) error {
 	return nil
 }
 
-func (f *PersistCache) SetCacheLayer(layer ICache, load bool) {
+func (f *PersistCache) SetCacheLayer(layer ICache, load bool) error {
+	if f.layer != nil {
+		return fmt.Errorf("cannot changed layer")
+	}
 	f.layer = layer
+	return nil
 }
 
 func (f *PersistCache) ActivateLayerSavingRuntime(intervals time.Duration) error {

@@ -39,9 +39,13 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 		result, err := client.GetAllSecrets(nextToken)
 		if err != nil {
 			// failed to retrive all the secrets
-			nextToken = result.NextToken
+			if trys == 0 {
+				// failed to retrive all secrets
+				return nil, err
+			}
 			trys--
-		} else {
+			continue
+		} else if result.NextToken == nil {
 			// got all secrets
 			for _, secret := range result.Secrets {
 				// caching the secrets
@@ -54,10 +58,6 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 			allSecrets = append(allSecrets, result.Secrets...)
 			break
 		}
-		if trys == 0 {
-			// failed to retrive all secrets
-			return nil, err
-		}
 
 		for _, secret := range result.Secrets {
 			key := GetCacheSecretKey(secret.ARN)
@@ -67,7 +67,7 @@ func RetriveAllSecretsWithAccessLog(ctx context.Context, publicKey string, secre
 				log.Println("API-AWS: failed to cache the secret", secret.ARN)
 			}
 		}
-
+		nextToken = result.NextToken
 		allSecrets = append(allSecrets, result.Secrets...)
 	}
 
@@ -120,20 +120,21 @@ func getAccessLog(client IAWSClient, secretID string) ([]types.AccessLog, error)
 		accessLogs, err := client.GetAccessLog(secretID, nextToken)
 		if err != nil {
 			// failed to retrive all
-			nextToken = accessLogs.NextToken
+			if trys == 0 {
+				// failed to retrive all secrets
+				log.Println("API-AWS: failed to retrive all access log to secret id: ", secretID)
+				return nil, err
+			}
 			trys--
-		} else {
+			continue
+		} else if accessLogs.NextToken == nil {
 			// retrive all the accesslog
 			accessLogList = append(accessLogList, accessLogs.AccessLog...)
 			break
 		}
-		if trys == 0 {
-			// failed to retrive all, saving to cache and returning error
-			log.Println("API-AWS: failed to retrive all access log to secret id: ", secretID)
-			// saving to cache TODO
-			return accessLogList, err
-		}
+
 		// adding all to the global variable
+		nextToken = accessLogs.NextToken
 		accessLogList = append(accessLogList, accessLogs.AccessLog...)
 	}
 	return accessLogList, nil
@@ -178,7 +179,7 @@ func GetSecretByIdWithAccessLog(ctx context.Context, publicKey string, secretKey
 
 	// caching the access log
 	key := GetCacheAccessKey(secretID)
-	err = cache.Set(key, accessLogList)
+	err = storage.SetCacheValue[[]types.AccessLog](cache, key, accessLogList)
 	if err != nil {
 		log.Println("API-AWS: failed to cache the Access Log of secret", secretID)
 	}
@@ -197,7 +198,7 @@ func GetSecretByIdWithAccessLog(ctx context.Context, publicKey string, secretKey
 
 	// caching the secret
 	key = GetCacheSecretKey(secretID)
-	err = cache.Set(key, secret)
+	err = storage.SetCacheValue[types.Secret](cache, key, *secret)
 	if err != nil {
 		log.Println("API-AWS: failed to cache the secret", secretID)
 	}

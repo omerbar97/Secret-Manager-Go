@@ -23,7 +23,7 @@ type ICache interface {
 
 	// Applying another cache layer, when the items won't found in the first case
 	// then searching in the lower level
-	SetCacheLayer(layer ICache, load bool)
+	SetCacheLayer(layer ICache, load bool) error
 
 	// For each time interval that is set, saving the cache to the lower level
 	// updating the lower level if any changes accured

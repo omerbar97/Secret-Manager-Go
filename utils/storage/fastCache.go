@@ -9,10 +9,12 @@ import (
 )
 
 type FastCache struct {
-	mutex    sync.Mutex
-	instance *cache.Cache
-	layer    ICache
-	changed  map[string]bool
+	mutex        sync.Mutex
+	instance     *cache.Cache
+	layer        ICache
+	changed      map[string]bool
+	changedMutex sync.Mutex
+	ch           chan bool
 }
 
 var once sync.Once
@@ -22,11 +24,13 @@ func NewFastCache(expirationTime time.Duration) *FastCache {
 	// creating the go-cache instance
 	if fastCache == nil {
 		once.Do(func() {
+			chanel := make(chan bool)
 			changed := make(map[string]bool)
 			instance := cache.New(expirationTime, expirationTime*2)
 			fastCache = &FastCache{
 				instance: instance,
 				changed:  changed,
+				ch:       chanel,
 			}
 		})
 	}
@@ -72,7 +76,7 @@ func (f *FastCache) Get(key string) (interface{}, error) {
 		} else {
 			// found in the other layer, applying it to the fast layer
 			f.safeSet(key, result)
-			f.changed[key] = false
+			f.SetChangedValue(key, false)
 			return r, nil
 		}
 	}
@@ -87,8 +91,45 @@ func (f *FastCache) Get(key string) (interface{}, error) {
 	return nil, fmt.Errorf("key found in cache but was deleted before so")
 }
 
+func (f *FastCache) SetChangedValue(key string, val bool) {
+	f.changedMutex.Lock()
+	defer f.changedMutex.Unlock()
+	f.changed[key] = val
+}
+
 func (f *FastCache) ActivateLayerSavingRuntime(intervals time.Duration) error {
-	// TODO setting go runtime to save every interval the fast cache to the second cache
+	// this function run in different run time, each interval saving to the lower cache the changes
+	if f.layer == nil {
+		return fmt.Errorf("there is no another layer to the cache")
+	}
+	go func() {
+		for {
+			select {
+			case <-f.ch:
+				fmt.Println("Stopping the Saving Runtime...")
+				return
+			default:
+				// Saving all the changed to the files
+				tempChangedKeys := f.changed
+				for key, val := range tempChangedKeys {
+					if val {
+						// this key was changed
+						if realVal, err := f.Get(key); err != nil {
+							// failed to save realVal
+							fmt.Println("Cache Runtime: Failed While trying to get key:", key, "and save it to the lower cache level")
+						} else if err := f.layer.Set(key, realVal); err != nil {
+							fmt.Println("Cache Runtime: Failed While trying to save key:", key, "to the lower cache level")
+						} else {
+							fmt.Println("Saving key:", key, "to lower level")
+							f.SetChangedValue(key, false)
+						}
+					}
+				}
+				// Sleep for the defined interval
+				time.Sleep(intervals)
+			}
+		}
+	}()
 	return nil
 }
 
@@ -112,7 +153,7 @@ func (f *FastCache) Set(key string, value interface{}) error {
 	defer f.mutex.Unlock()
 	// setting the value to the fast cache
 	f.instance.Set(key, value, 0)
-	f.changed[key] = true
+	f.SetChangedValue(key, true)
 	return nil
 }
 
@@ -130,13 +171,18 @@ func (f *FastCache) Delete(key string) error {
 	return nil
 }
 
-func (f *FastCache) SetCacheLayer(layer ICache, load bool) {
+func (f *FastCache) SetCacheLayer(layer ICache, load bool) error {
+	if f.layer != nil {
+		return fmt.Errorf("cannot changed layer")
+	}
+
 	f.layer = layer
 
 	// if load == true then loading the lower cache to the upper cache
 	if load {
 		lst := f.GetAllKeys()
 		for _, key := range lst {
+			fmt.Println("found key: ", key)
 			item, err := f.layer.Get(key)
 			if err != nil {
 				// failed to get key..
@@ -149,4 +195,5 @@ func (f *FastCache) SetCacheLayer(layer ICache, load bool) {
 			}
 		}
 	}
+	return nil
 }

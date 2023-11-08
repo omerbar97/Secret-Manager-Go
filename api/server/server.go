@@ -44,7 +44,10 @@ func main() {
 
 	// FastCache
 	cacheDuration := 5 * time.Minute
-	storage.NewFastCache(cacheDuration).SetCacheLayer(persistCache, true)
+	fastCache := storage.NewFastCache(cacheDuration)
+
+	fastCache.SetCacheLayer(persistCache, true)
+	fastCache.ActivateLayerSavingRuntime(20 * time.Second)
 	// End setting up cache system
 
 	ctx := context.Background()
